@@ -90,6 +90,8 @@ internal sealed class PluginAssemblyLoadContext(Assembly pluginAssembly)
 
     protected override Assembly? Load(AssemblyName assemblyName)
     {
+        // This ensures that the plugin and application are using the same Plugin.Types
+        // assembly and hence agree on the IPlugin interface
         if (assemblyName.Name == PluginAssembly.GetName().Name)
         {
             return PluginAssembly;
