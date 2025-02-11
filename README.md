@@ -18,7 +18,7 @@ In this example the `AssemblyLoadContext` type is created directly and the plugi
 
 This particular example uses a custom `AssemblyLoadContext` that hooks the `Load` method. In the case the `Plugin.Types` assembly is loaded it will just return the `Assembly` loaded in the default context. This accomplishes the same thing as the simple example. The difference is that in a more complex plugin environment, particularly one where they can load their own dependencies, an application will likely need custom resolution logic and that needs to make sure it handles cases like this.
 
-# Documentation
+## Documentation
 
 - [AssemblyLoadContext overview](https://learn.microsoft.com/en-us/dotnet/core/dependency-loading/understanding-assemblyloadcontext)
 - [Managed loading algorithm](https://learn.microsoft.com/en-us/dotnet/core/dependency-loading/loading-managed)
