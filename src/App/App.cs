@@ -1,6 +1,8 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-using System.Reflection;
+#define SIMPLEALC
+// #define CUSTOMALC
+
 using System.Runtime.Loader;
 using Plugin.Types;
 
@@ -50,12 +52,12 @@ while (true)
     }
 }
 
-internal sealed class PluginData(
-    PluginAssemblyLoadContext loadContext,
+internal sealed partial class PluginData(
+    AssemblyLoadContext loadContext,
     List<IPlugin> plugins) : IDisposable
 {
     public List<IPlugin> Plugins { get; } = plugins;
-    public PluginAssemblyLoadContext LoadContext { get; } = loadContext;
+    public AssemblyLoadContext LoadContext { get; } = loadContext;
 
     public void Dispose()
     {
@@ -63,11 +65,53 @@ internal sealed class PluginData(
         LoadContext.Unload();
     }
 
-    public static PluginData Create(string pluginName)
+    public static partial PluginData Create(string pluginName);
+}
+
+#if SIMPLEALC
+
+// This option uses a simple AssemblyLoadContext that relies on default loading logic
+// to unify the assembly for IPlugin
+
+internal sealed partial class PluginData
+{
+    public static partial PluginData Create(string pluginName)
+    {
+        var pluginPath = Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location)!, pluginName);
+
+        // This works because there is no load logic for the created AssemblyLoadContext. That 
+        // means any load request from the plugin DLL will be forwarded to the default context
+        // where the plugin DLL is already loaded
+        var loadContext = new AssemblyLoadContext(pluginName, isCollectible: true);
+
+        var pluginAssembly = loadContext.LoadFromAssemblyPath(pluginPath);
+        var plugins = new List<IPlugin>();
+        foreach (var type in pluginAssembly.GetTypes())
+        {
+            if (typeof(IPlugin).IsAssignableFrom(type))
+            {
+                var plugin = (IPlugin)Activator.CreateInstance(type)!;
+                plugins.Add(plugin);
+            }
+        }
+
+        return new PluginData(loadContext, plugins);
+    }
+}
+
+#elif CUSTOMALC
+
+// This option uses a custom AssemblyLoadContext that ensures that the plugin and application agree
+// on the IPlugin interface. A custom AssemblyLoadContext is likely going to be necessary if plugins
+// can do custom loading like using a utility library
+
+internal sealed partial class PluginData
+{
+    public static partial PluginData Create(string pluginName)
     {
         var pluginPath = Path.Combine(Path.GetDirectoryName(typeof(Program).Assembly.Location)!, pluginName);
         var pluginTypeAssembly = typeof(IPlugin).Assembly;
-        var loadContext = new PluginAssemblyLoadContext(pluginTypeAssembly);
+        var loadContext = new AssemblyLoadContext(pluginName, isCollectible: true);
         var pluginAssembly = loadContext.LoadFromAssemblyPath(pluginPath);
         var plugins = new List<IPlugin>();
         foreach (var type in pluginAssembly.GetTypes())
@@ -100,3 +144,9 @@ internal sealed class PluginAssemblyLoadContext(Assembly pluginAssembly)
         return null;
     }
 }
+
+#else
+
+#error "Pick an option"
+
+#endif
